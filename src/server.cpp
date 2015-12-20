@@ -20,36 +20,31 @@
  * THE SOFTWARE. 
  */
 
-#include "server.hpp"
 #include <thread>
-#include <vector>
+#include "protocoldetector.hpp"
+#include "server.hpp"
 
-Server::Server(const Config& config_) :
-  config{config_},
-  ioService{},
-  acceptor {ioService, tcp::endpoint{tcp::v4(), config.getPort()}},
-  socket{ioService} {
-  
+Server::Server(const Config& config_)
+  : config{config_},
+    ioService{},  
+    backendManager{config, ioService},
+    clientManager{config, backendManager},
+    acceptor{ioService, tcp::endpoint{tcp::v4(), config.getPort()}},
+    socket{ioService} {  
 }
   
-void Server::accept()
-{
+void Server::accept() {
   acceptor.async_accept(socket,
     [this](boost::system::error_code ec) {
       if (!ec) {
-        Client::Ptr client = std::make_shared<Client>(std::move(socket));
-        client->start();
-        clients.push_back(client);
+        ProtocolDetector::start(backendManager, socket, [this](AbstractClient::Ptr client){clientManager.add(client);});
       }
 
       accept();
     });
-  }  
-
-Server::~Server() {
 }
 
-void Server::run() {
+void Server::run() {  
   accept();
   
   std::vector<std::thread> threads;

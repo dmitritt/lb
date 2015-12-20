@@ -20,23 +20,36 @@
  * THE SOFTWARE. 
  */
 
-#include "config.hpp"
-#include "server.hpp"
+#ifndef BACKEND_HPP
+#define BACKEND_HPP
 
-using boost::asio::ip::tcp;
+#include <atomic>
+#include <memory>
+#include <string>
+#include <vector>
 
-int main(int argc, char* argv[]) {
-  try {
-    if (argc != 2) {
-      std::cout << "Usage: " << argv[0] << " <config file>" << std::endl;
-      exit(1);
-    }
-    
-    Config config{argv[1]};    
-    Server server{config};
-    server.run();
-  } catch (std::exception& e) {
-    std::cerr << e.what() << std::endl;
-  }
-}
+#include "../config.hpp"
+#include "../ipc/requestresponse.hpp"
+
+class Backend : public std::enable_shared_from_this<Backend> {
+public:
+  typedef std::shared_ptr<Backend> Ptr;
+  typedef std::vector<Ptr> List;
+  
+  enum class State : char {DISCONNECTED, AVAILABLE, BUSY, BROKEN, REMOVED};
+  Backend(const Address& address);
+  const Address& getAddress() {return address;}
+  void connect();
+  void check();
+  State getState() {return state;}
+  bool take();
+  void release();
+  void handshake(IPC::HandshakeRequest& request, IPC::Response& response);
+  void executeRequest(IPC::Request& request, IPC::Response& response);
+private:
+  const Address& address;
+  std::atomic<State> state; 
+};
+
+#endif /* BACKEND_HPP */
 

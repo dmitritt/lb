@@ -20,27 +20,55 @@
  * THE SOFTWARE. 
  */
 
-/* 
- * File:   config.hpp
- * Author: dmitri
- *
- * Created on December 6, 2015, 10:44 PM
- */
-
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
 #include <string>
+#include <utility>
+#include <vector>
+
+struct Address {
+  const std::string host;
+  const std::string port;
+  const bool malformed;
+  
+  static Address create(const std::string& address) {
+    auto colon = address.find(':');
+    if (colon == std::string::npos) {
+      return Address{"", "", true};
+    } else {
+      return Address{address.substr(0, colon), address.substr(colon+1)};
+    }
+  }
+private:  
+  Address(std::string&& host_, std::string&& port_, bool malformed_ = false)
+    : host{std::move(host)},
+      port{std::move(port)},
+      malformed{malformed_} {}  
+};
 
 class Config {
 public:
-    Config(const std::string configFile) {}
-    
-    unsigned short getPort() const {return port;}
-    unsigned short getThreads() const {return threads;}
+  enum USER_AUTH{PASS_THROUGH,LIB};
+  enum Q_KILL{KILL_9,EXIT_0};
+
+  Config(const std::string configFile) {}
+
+  unsigned short getPort() const {return port;}
+  unsigned short getThreads() const {return threads;}
+  bool getEnableBackendBool() const {return enableBackendBool;}   
+  const std::vector<Address>& getBackendAddresses() const {return backendAddresses;}
+  
 private:
-    unsigned short port;
-    unsigned short threads;
+  unsigned short port;
+  unsigned short threads;
+  USER_AUTH userAuthentication;
+  bool enableBackendBool;
+  unsigned short minPooledBackendCount; 
+  unsigned short maxPooledBackendCount;
+  std::string qCommand;
+  Q_KILL qKill;
+  std::vector<Address> backendAddresses;    
 };
 
 #endif /* CONFIG_HPP */

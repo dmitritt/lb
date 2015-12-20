@@ -20,24 +20,33 @@
  * THE SOFTWARE. 
  */
 
-#ifndef CLIENT_HPP
-#define CLIENT_HPP
+#include "backend.hpp"
 
-#include <memory>
-#include "boost/asio.hpp"
+Backend::Backend(const Address& address_)
+  : address{address_},
+    state{State::DISCONNECTED} {
+}
 
-using boost::asio::ip::tcp;
+void Backend::check() {
 
-class Client : public std::enable_shared_from_this<Client> {
-public:
-  typedef std::shared_ptr<Client> Ptr;  
-    
-  Client(tcp::socket&& socket);
-  ~Client();
-  void start();
-private:    
-  tcp::socket socket;
-};
+}
 
-#endif /* CLIENT_HPP */
+void Backend::connect() {
 
+}
+
+void Backend::handshake(IPC::HandshakeRequest& request, IPC::Response& response) {
+  
+}
+
+void Backend::executeRequest(IPC::Request& request, IPC::Response& response) {
+
+}
+
+bool Backend::take() {
+  return false;
+}
+
+void Backend::release() {
+
+}

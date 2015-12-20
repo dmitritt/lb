@@ -20,23 +20,39 @@
  * THE SOFTWARE. 
  */
 
-#include "config.hpp"
-#include "server.hpp"
+#ifndef CLIENT_HPP
+#define CLIENT_HPP
+
+#include <atomic>
+#include <functional>
+#include <memory>
+#include <boost/asio.hpp>
+#include "../config.hpp"
 
 using boost::asio::ip::tcp;
 
-int main(int argc, char* argv[]) {
-  try {
-    if (argc != 2) {
-      std::cout << "Usage: " << argv[0] << " <config file>" << std::endl;
-      exit(1);
-    }
-    
-    Config config{argv[1]};    
-    Server server{config};
-    server.run();
-  } catch (std::exception& e) {
-    std::cerr << e.what() << std::endl;
-  }
+namespace {
+  const std::size_t BUFFER_SIZE = 2 * 1024;
+  const std::size_t BUFFERS_SIZE = 16;
 }
 
+class AbstractClient : public std::enable_shared_from_this<AbstractClient> {
+public:
+  typedef std::shared_ptr<AbstractClient> Ptr;  
+  typedef std::function<void()> OnAbstractClientDisconnect;
+    
+  AbstractClient(tcp::socket&& socket);
+  AbstractClient(const AbstractClient& other) = delete;
+  AbstractClient& operator=(const AbstractClient& right) = delete;
+  virtual ~AbstractClient();
+
+  void setDisconnectListener(OnAbstractClientDisconnect listener);
+  virtual void start() = 0;  
+  virtual void disconnect();
+
+protected:   
+  tcp::socket socket;
+  OnAbstractClientDisconnect disconnectListener;
+};
+
+#endif /* CLIENT_HPP */

@@ -20,23 +20,29 @@
  * THE SOFTWARE. 
  */
 
-#include "config.hpp"
-#include "server.hpp"
+#include "abstractclient.hpp"
+#include <cassert>
+#include <memory>
+#include <utility>
+#include <boost/asio.hpp>
 
-using boost::asio::ip::tcp;
-
-int main(int argc, char* argv[]) {
-  try {
-    if (argc != 2) {
-      std::cout << "Usage: " << argv[0] << " <config file>" << std::endl;
-      exit(1);
-    }
-    
-    Config config{argv[1]};    
-    Server server{config};
-    server.run();
-  } catch (std::exception& e) {
-    std::cerr << e.what() << std::endl;
-  }
+AbstractClient::AbstractClient(tcp::socket&& socket_) 
+  : socket(std::move(socket_)) {
 }
 
+AbstractClient::~AbstractClient() {
+  disconnect();
+}
+
+void AbstractClient::setDisconnectListener(OnAbstractClientDisconnect listener) {
+  disconnectListener = listener;
+}
+
+void AbstractClient::disconnect() {
+  boost::system::error_code ec;
+  socket.close(ec);
+  if (ec) {
+    // TODO log
+  }
+  disconnectListener();
+}

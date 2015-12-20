@@ -20,16 +20,34 @@
  * THE SOFTWARE. 
  */
 
-#include "client.hpp"
-#include <utility>
+#ifndef BACKEND_MANAGER_HPP
+#define BACKEND_MANAGER_HPP
 
-Client::Client(tcp::socket&& socket_) :
-  socket(std::move(socket_)) {
+#include <boost/asio.hpp>
+
+#include "../config.hpp"
+#include "backend.hpp"
+#include "../ipc/requestresponse.hpp"
+
+namespace IPC {
+  class Client;
 }
 
-Client::~Client() {
-}
+class BackendManager { //: public IPC::BackendManager {
+public:
+  BackendManager(const Config& config, boost::asio::io_service& ioService);
+  BackendManager(BackendManager&) = delete;
+  BackendManager& operator=(const BackendManager&) = delete;
+  
+//  void sendHandshake(IPC::HandshakeRequest& request, IPC::Response& response);
+//  void sendRequest(IPC::Request& request, IPC::Response& response);
+private:
+  friend class IPC::Client;
+  Backend::Ptr getAvailableBackend();
+private:
+  boost::asio::io_service& ioService;
+  Backend::List backends;  
+};
 
-void Client::start() {
-    
-}
+#endif /* BACKEND_MANAGER_HPP */
+

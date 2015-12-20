@@ -20,23 +20,25 @@
  * THE SOFTWARE. 
  */
 
-#include "config.hpp"
-#include "server.hpp"
+#ifndef CLIENT_MANAGER_HPP
+#define CLIENT_MANAGER_HPP
 
-using boost::asio::ip::tcp;
+#include <mutex>
+#include <vector>
+#include <boost/asio.hpp>
+#include "../backend/backendmanager.hpp"
+#include "abstractclient.hpp"
 
-int main(int argc, char* argv[]) {
-  try {
-    if (argc != 2) {
-      std::cout << "Usage: " << argv[0] << " <config file>" << std::endl;
-      exit(1);
-    }
-    
-    Config config{argv[1]};    
-    Server server{config};
-    server.run();
-  } catch (std::exception& e) {
-    std::cerr << e.what() << std::endl;
-  }
-}
+class ClientManager {
+public:
+  ClientManager(const Config& config, BackendManager& backendManager);
+  void add(AbstractClient::Ptr client);
+  void remove(AbstractClient::Ptr client);
+private:
+  const Config& config;
+  BackendManager& backendManager;
+  std::mutex clientsLock;
+  std::vector<AbstractClient::Ptr> clients;
+};
 
+#endif /* CLIENT_MANAGER_HPP */

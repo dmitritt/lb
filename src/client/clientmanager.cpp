@@ -20,23 +20,29 @@
  * THE SOFTWARE. 
  */
 
-#include "config.hpp"
-#include "server.hpp"
+#include <algorithm>
+#include "clientmanager.hpp"
 
-using boost::asio::ip::tcp;
-
-int main(int argc, char* argv[]) {
-  try {
-    if (argc != 2) {
-      std::cout << "Usage: " << argv[0] << " <config file>" << std::endl;
-      exit(1);
-    }
-    
-    Config config{argv[1]};    
-    Server server{config};
-    server.run();
-  } catch (std::exception& e) {
-    std::cerr << e.what() << std::endl;
-  }
+ClientManager::ClientManager(const Config& config_, BackendManager& backendManager_) 
+  : config{config_},
+    backendManager{backendManager_} {  
 }
 
+void ClientManager::add(AbstractClient::Ptr client) {  
+  std::unique_lock<std::mutex> lock{clientsLock};
+  clients.push_back(client);
+  lock.unlock();
+  
+  client->setDisconnectListener([this,client]() {
+    remove(client);
+  });
+  client->start();
+}
+
+void ClientManager::remove(AbstractClient::Ptr client) {
+  std::lock_guard<std::mutex> lock{clientsLock};
+  auto it = std::find(clients.begin(), clients.end(), client);
+  if (it != clients.end()) {
+    clients.erase(it);
+  }
+}

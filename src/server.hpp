@@ -23,29 +23,29 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include <vector>
-#include "boost/asio.hpp"
+#include <boost/asio.hpp>
 #include "config.hpp"
-#include "client.hpp"
+#include "backend/backendmanager.hpp"
+#include "client/clientmanager.hpp"
 
 using boost::asio::ip::tcp;
 
 class Server {
 public:
   Server(const Config& config);
-  ~Server();
   
   void run();
 private:
   void accept();  
-    
+  
   const Config& config;  
   boost::asio::io_service ioService;
-  tcp::acceptor acceptor;
-  tcp::socket socket;
   
-  std::vector<Client::Ptr> clients;
+  BackendManager backendManager;
+  ClientManager clientManager;
+
+  tcp::acceptor acceptor;
+  tcp::socket socket;  
 };
 
 #endif /* SERVER_HPP */
-

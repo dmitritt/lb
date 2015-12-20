@@ -20,23 +20,30 @@
  * THE SOFTWARE. 
  */
 
-#include "config.hpp"
-#include "server.hpp"
+#ifndef PROTOCOL_DETECTOR_HPP
+#define PROTOCOL_DETECTOR_HPP
 
-using boost::asio::ip::tcp;
+#include <exception>
+#include <functional>
+#include <vector>
+#include <boost/asio.hpp>
+#include "backend/backendmanager.hpp"
+#include "client/abstractclient.hpp"
 
-int main(int argc, char* argv[]) {
-  try {
-    if (argc != 2) {
-      std::cout << "Usage: " << argv[0] << " <config file>" << std::endl;
-      exit(1);
-    }
-    
-    Config config{argv[1]};    
-    Server server{config};
-    server.run();
-  } catch (std::exception& e) {
-    std::cerr << e.what() << std::endl;
-  }
-}
-
+class ProtocolDetector : public std::enable_shared_from_this<ProtocolDetector> {
+public:
+  typedef std::function<void(AbstractClient::Ptr)> ClientProcessor;
+  
+  static void start(::BackendManager& backendManager, tcp::socket& socket, ClientProcessor&& clientProcessor);   
+private:
+  ProtocolDetector(::BackendManager& backendManager, tcp::socket& socket, ClientProcessor&& clientProcessor);
+  void start();
+  std::size_t detect(std::size_t bytes_transferred);
+private:  
+  ::BackendManager& backendManager;
+  tcp::socket socket;
+  ClientProcessor clientProcessor;
+  
+  std::vector<char> buffer;
+};
+#endif /* PROTOCOL_DETECTOR_HPP */
