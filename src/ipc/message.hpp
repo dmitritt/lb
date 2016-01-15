@@ -20,31 +20,37 @@
  * THE SOFTWARE. 
  */
 
-#ifndef PROTOCOL_DETECTOR_HPP
-#define PROTOCOL_DETECTOR_HPP
+#ifndef IPC_MESSAGE_HPP
+#define IPC_MESSAGE_HPP
 
-#include <exception>
-#include <functional>
-#include <vector>
-#include <boost/asio.hpp>
-#include "backend/backendmanager.hpp"
-#include "client/abstractclient.hpp"
-#include "ipc/clientcontext.hpp"
+#include "bufferpool.hpp"
 
-class ProtocolDetector : public std::enable_shared_from_this<ProtocolDetector> {
+namespace IPC {
+  
+class Message {
 public:
-  typedef std::function<void(AbstractClient::Ptr)> ClientProcessor;
+  static constexpr std::size_t HEADER_SIZE = 8;
   
-  static void start(IPC::ClientContext clientContext, tcp::socket& socket, ClientProcessor&& clientProcessor);   
+  explicit Message(BufferPool& bufferPool);
+  Message(const Message& orig) = delete;
+  Message(Message&& other);
+  
+  ~Message(); 
+  
+  char* getHeader() {return header;}
+  uint32_t getHeaderSize() {return HEADER_SIZE;}
+  void parseBodySize();
+  void ensureBodyBufferCapacity();
+  uint32_t getBodySize() {return bodySize;}
+  std::vector<buffer>& getBody() {return body;}
+  void releaseBodyBuffer();
 private:
-  ProtocolDetector(IPC::ClientContext clientContext, tcp::socket& socket, ClientProcessor&& clientProcessor);
-  void start();
-  std::size_t detect(std::size_t bytes_transferred);
-private:  
-  IPC::ClientContext clientContext;
-  tcp::socket socket;
-  ClientProcessor clientProcessor;
-  
-  std::vector<char> buffer;
+  BufferPool& bufferPool;
+  char header[HEADER_SIZE];
+  uint32_t bodySize;
+  std::vector<buffer> body;
 };
-#endif /* PROTOCOL_DETECTOR_HPP */
+
+}
+#endif /* IPC_MESSAGE_HPP */
+

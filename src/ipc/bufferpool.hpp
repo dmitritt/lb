@@ -20,31 +20,32 @@
  * THE SOFTWARE. 
  */
 
-#ifndef PROTOCOL_DETECTOR_HPP
-#define PROTOCOL_DETECTOR_HPP
+#ifndef IPC_BUFFER_POOL_HPP
+#define IPC_BUFFER_POOL_HPP
 
-#include <exception>
-#include <functional>
 #include <vector>
-#include <boost/asio.hpp>
-#include "backend/backendmanager.hpp"
-#include "client/abstractclient.hpp"
-#include "ipc/clientcontext.hpp"
 
-class ProtocolDetector : public std::enable_shared_from_this<ProtocolDetector> {
+namespace IPC {
+
+static const std::size_t BUFFER_SIZE = 4 * 1024;
+
+typedef struct BufferValue {
+  char b[BUFFER_SIZE];
+} * buffer;
+  
+class BufferPool {
 public:
-  typedef std::function<void(AbstractClient::Ptr)> ClientProcessor;
+  BufferPool();
+  BufferPool(const BufferPool& orig) = delete;
+  ~BufferPool();
   
-  static void start(IPC::ClientContext clientContext, tcp::socket& socket, ClientProcessor&& clientProcessor);   
+  buffer allocate();
+  void deallocate(buffer b);
 private:
-  ProtocolDetector(IPC::ClientContext clientContext, tcp::socket& socket, ClientProcessor&& clientProcessor);
-  void start();
-  std::size_t detect(std::size_t bytes_transferred);
-private:  
-  IPC::ClientContext clientContext;
-  tcp::socket socket;
-  ClientProcessor clientProcessor;
-  
-  std::vector<char> buffer;
+  std::vector<buffer> freeBuffers;
 };
-#endif /* PROTOCOL_DETECTOR_HPP */
+
+} // namespace IPC
+
+#endif /* BUFFERPOOL_HPP */
+

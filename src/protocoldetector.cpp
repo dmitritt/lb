@@ -23,12 +23,12 @@
 #include "protocoldetector.hpp"
 #include "ipc/client.hpp"
 
-void ProtocolDetector::start(::BackendManager& backendManager, tcp::socket& socket, ClientProcessor&& clientProcessor) {
-  std::shared_ptr<ProtocolDetector>(new ProtocolDetector{backendManager, socket, std::move(clientProcessor)})->start();
+void ProtocolDetector::start(IPC::ClientContext clientContext, tcp::socket& socket, ClientProcessor&& clientProcessor) {
+  std::shared_ptr<ProtocolDetector>(new ProtocolDetector{clientContext, socket, std::move(clientProcessor)})->start();
 }
 
-ProtocolDetector::ProtocolDetector(::BackendManager& backendManager_, tcp::socket& socket_, ClientProcessor&& clientProcessor_) 
-  : backendManager{backendManager_},
+ProtocolDetector::ProtocolDetector(IPC::ClientContext clientContext_, tcp::socket& socket_, ClientProcessor&& clientProcessor_) 
+  : clientContext{clientContext_},
     socket{std::move(socket_)},
     clientProcessor{std::move(clientProcessor_)},
     buffer(BUFFER_SIZE) {
@@ -59,7 +59,7 @@ std::size_t ProtocolDetector::detect(std::size_t bytes_transferred) {
     // which represents the client's capability wrt compression, timestamp|timespan and uuid, 
     // e.g. "myname:mypassword\3".
     buffer.resize(bytes_transferred);
-    clientProcessor(AbstractClient::Ptr{new IPC::Client(backendManager, std::move(socket), std::move(buffer))});
+    clientProcessor(AbstractClient::Ptr{new IPC::Client(clientContext, std::move(socket), std::move(buffer))});
     return 0;
   } else if (std::strncmp(GET, &buffer.front(), sizeof(GET)) || std::strncmp(OPTIONS, &buffer.front(), sizeof(OPTIONS))) {      
     // TODO add more check here

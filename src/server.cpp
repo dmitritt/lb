@@ -37,7 +37,7 @@ void Server::accept() {
   acceptor.async_accept(socket,
     [this](boost::system::error_code ec) {
       if (!ec) {
-        ProtocolDetector::start(backendManager, socket, [this](AbstractClient::Ptr client){clientManager.add(client);});
+        ProtocolDetector::start({backendManager, bufferPool}, socket, [this](AbstractClient::Ptr client){clientManager.add(client);});
       }
 
       accept();

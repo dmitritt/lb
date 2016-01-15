@@ -22,26 +22,22 @@
 
 #include <algorithm>
 #include <utility>
-#include <boost/endian/conversion.hpp>
 #include "../backend/backendconnection.hpp"
 #include "client.hpp"
 
 namespace {  
   // 'no available backends
   const unsigned char NO_AVAILABLE_BACKENDS[] = {0x01,0x00,0x00,0x00,0x1f,0x00,0x00,0x00,0x80,0x6e,0x6f,0x20,0x61,0x76,0x61,0x69,0x6c,0x61,0x62,0x6c,0x65,0x20,0x62,0x61,0x63,0x6b,0x65,0x6e,0x64,0x73,0x00};
-  
-  const std::size_t MESSAGE_SIZE_OFFSET = 4;
 }  
 
 namespace IPC {
   
-Client::Client(BackendManager& backendManager_, tcp::socket&& socket, std::vector<char>&& buffer) 
+Client::Client(ClientContext& clientContext_, tcp::socket&& socket, std::vector<char>&& buffer) 
   : AbstractClient{std::move(socket)},
-    backendManager{backendManager_},
+    clientContext{clientContext_},
     handshakeRequest{0UL, std::move(buffer)},
-    buffers{},
+    request{clientContext.bufferPool},
     shNsRRequest{*this} {
-  buffers.reserve(BUFFERS_SIZE);    
 }
 
 Client::~Client() {
@@ -69,9 +65,8 @@ bool Client::getAvailableConnection() {
     }
   }
   
-  auto backend = backendManager.getAvailableBackend();
+  auto backend = clientContext.backendManager.getAvailableBackend();
   if (!backend) {
-    sendNoAvailableBackendsError();
     return false;
   }
   
@@ -82,20 +77,17 @@ bool Client::getAvailableConnection() {
     }
   }
   
-  currentConnection.reset(new BackendConnection{backend, backendManager.ioService});
+  currentConnection.reset(new BackendConnection{backend, clientContext.backendManager.ioService});
   connections.push_back(currentConnection);
   return true;
 }
 
 void Client::onHandshakeResponse(char response) {
-  // if first handshake release backend and send response
-  // otherwise send request
-
   auto self = shared_from_this();
-  requestHeader[0] = (response);
+  shakehandResponse = response;
   boost::asio::async_write(
     socket,
-    boost::asio::buffer(requestHeader, 1),
+    boost::asio::buffer(&shakehandResponse, sizeof(shakehandResponse)),
     [this, self](const boost::system::error_code& ec, std::size_t bytes_transferred) {
       if (ec) {
         // TODO log
@@ -110,7 +102,7 @@ void Client::readRequestHeader() {
   auto self = shared_from_this();
   boost::asio::async_read(
     socket,
-    boost::asio::buffer(requestHeader, sizeof(requestHeader)),
+    boost::asio::buffer(request.getHeader(), request.getHeaderSize()),
     [this, self](const boost::system::error_code& ec, std::size_t bytes_transferred) {
       if (ec) {
         // TODO log
@@ -119,32 +111,15 @@ void Client::readRequestHeader() {
         readRequestBody();
       }
     });
-  }
-
-void Client::ensureBuffersCapacity() {  
-  uint32_t(*f)(uint32_t) = (requestHeader[0] ? 
-    ((uint32_t(*)(uint32_t))&boost::endian::little_to_native) : 
-    ((uint32_t(*)(uint32_t))&boost::endian::big_to_native));
-  // requestHeader[0] - big endian (0) or little endian (1)  
-  requestBodySize = f(*(reinterpret_cast<uint32_t*>(requestHeader+MESSAGE_SIZE_OFFSET))) - HEADER_SIZE;
-    
-  std::size_t sizeBefore = 0;
-  for (auto& v : buffers) {
-    sizeBefore += v.size();
-  }
-  
-  while(sizeBefore < requestBodySize) {
-    buffers.emplace_back(BUFFER_SIZE);
-    sizeBefore += BUFFER_SIZE;
-  } 
 }
 
 void Client::readRequestBody() {
   auto self = shared_from_this();
-  ensureBuffersCapacity();
+  request.parseBodySize();
+  request.ensureBodyBufferCapacity();
   boost::asio::async_read(
     socket,
-    boost::asio::buffer(buffers, requestBodySize),
+    boost::asio::buffer(request.getBody(), request.getBodySize()),
     [this, self](const boost::system::error_code& ec, std::size_t bytes_transferred) {
       if (ec) {
         // TODO log
@@ -153,7 +128,7 @@ void Client::readRequestBody() {
         sendRequest();
       }
     });
-  }
+}
 
 void Client::sendRequest() {  
   if (!getAvailableConnection()) {
@@ -166,8 +141,6 @@ void Client::sendRequest() {
 }
 
 void Client::doSendRequest() {
-  assert(!!currentConnection);
-  
   currentConnection->executeRequest(*this, *this);
 }
 
@@ -175,7 +148,7 @@ void Client::sendNoAvailableBackendsError() {
   auto self = shared_from_this();
   boost::asio::async_write(
     socket,
-    boost::asio::buffer(NO_AVAILABLE_BACKENDS),
+    boost::asio::buffer(NO_AVAILABLE_BACKENDS, sizeof(NO_AVAILABLE_BACKENDS)),
     [this, self](const boost::system::error_code& ec, std::size_t bytes_transferred) {
       if (ec) {
         // TODO log
@@ -190,8 +163,9 @@ void Client::onResponse(std::vector<char>&& buffer) {
 //backendManager.sendRequest(request, response);
 }
 
-void Client::onDisconnected() {
-
+void Client::onDisconnect() {
+  // TODO log
+  disconnect();
 }
 
 } // namespace IPC

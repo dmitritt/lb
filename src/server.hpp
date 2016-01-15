@@ -27,6 +27,7 @@
 #include "config.hpp"
 #include "backend/backendmanager.hpp"
 #include "client/clientmanager.hpp"
+#include "ipc/bufferpool.hpp"
 
 using boost::asio::ip::tcp;
 
@@ -43,7 +44,8 @@ private:
   
   BackendManager backendManager;
   ClientManager clientManager;
-
+  IPC::BufferPool bufferPool;
+  
   tcp::acceptor acceptor;
   tcp::socket socket;  
 };

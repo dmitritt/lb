@@ -37,31 +37,32 @@ BackendConnection::~BackendConnection() {
 }
 
 void BackendConnection::start(IPC::HandshakeRequest& request, IPC::Response& response_) {
+  handshakeRequest = &request;
   response = &response_;
   tcp::resolver resolver{socket.get_io_service()};
   resolver.async_resolve({backend->getAddress().host, backend->getAddress().port}, 
-    [this, &request](const boost::system::error_code& ec, tcp::resolver::iterator it) {
+    [this](const boost::system::error_code& ec, tcp::resolver::iterator it) {
       if (ec) {
         markBroken();
       } else {
-        connect(request, it);
+        connect(it);
       } 
     });
 }
 
-void BackendConnection::connect(IPC::HandshakeRequest& request, tcp::resolver::iterator it) {
+void BackendConnection::connect(tcp::resolver::iterator it) {
   boost::asio::async_connect(socket, it,
-    [this, &request](boost::system::error_code ec, tcp::resolver::iterator) {
+    [this](boost::system::error_code ec, tcp::resolver::iterator) {
       if (ec) {
         markBroken();
       } else {
-        handshake(request);
+        handshake();
       }
     });
 }
 
 void BackendConnection::markBroken() {
-  
+  // TODO implement
 }
 
 void BackendConnection::close() {
@@ -76,44 +77,85 @@ void BackendConnection::close() {
   }
 }
 
-void BackendConnection::handshake(IPC::HandshakeRequest& request) {
+void BackendConnection::handshake() {
   boost::asio::async_write(
     socket, 
-    boost::asio::buffer(request.getBuffer()),
-    [this,&request](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+    boost::asio::buffer(handshakeRequest->getBuffer()),
+    [this](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+      handshakeRequest = nullptr;
       if (!ec) {
         // TODO log error
         close();
       } else {
-        readHandshakeResponse(request);
+        readHandshakeResponse();
       }
     });
 }
 
-void BackendConnection::readHandshakeResponse(IPC::HandshakeRequest& request) {  
+void BackendConnection::readHandshakeResponse() {  
   boost::asio::async_read(
     socket,
-    boost::asio::buffer(request.responseByte, 1/*sizeof(request.responseByte)*/),
-    [this,&request](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+    boost::asio::buffer(&shakehandResponse, sizeof(shakehandResponse)),
+    [this](const boost::system::error_code& ec, std::size_t bytes_transferred) {
       if (!ec) {
+        response->onDisconnect();
         // TODO log error
-        close();
+        close();        
       } else {
         if (response->releaseAfterHandshake()) {
           backend->release();
         }
         connected = true;
         
-        auto r = response;
-        response = nullptr;    
-        
-        r->onHandshakeResponse(request.responseByte[0]);
+        response->onHandshakeResponse(shakehandResponse);
+        response = nullptr;
       }      
     });
   }
 
-void BackendConnection::executeRequest(IPC::Request& request, IPC::Response& response) {
+void BackendConnection::executeRequest(IPC::Request& request_, IPC::Response& response_) {
+  request = &request_;
+  response = &response_;
+  writeRequestHeader();
+}
+
+void BackendConnection::writeRequestHeader() {
+  boost::asio::async_write(
+    socket, 
+    boost::asio::buffer(request->getHeader(), request->getHeaderSize()),
+    [this](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+      handshakeRequest = nullptr;
+      if (!ec) {
+        // TODO log error
+        close();
+      } else {
+        writeRequestBody();
+      }
+    });
+}
+
+void BackendConnection::writeRequestBody() {
+  boost::asio::async_write(
+    socket, 
+    boost::asio::buffer(request->getHeader(), request->getHeaderSize()),
+    [this](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+      handshakeRequest = nullptr;
+      if (!ec) {
+        // TODO log error
+        close();
+      } else {
+        readResponseHeader();
+      }
+    });
+}
+
+void BackendConnection::readResponseHeader() {
 
 }
 
+void BackendConnection::readResponseBody() {
+
+}
+  
+  
 } // namespace IPC

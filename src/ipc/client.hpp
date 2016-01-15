@@ -28,6 +28,8 @@
 #include "../backend/backendconnection.hpp"
 #include "../backend/backendmanager.hpp"
 #include "../client/abstractclient.hpp"
+#include "clientcontext.hpp"
+#include "message.hpp"
 #include "requestresponse.hpp"
 
 namespace IPC {
@@ -36,22 +38,22 @@ class SHNSRResponse;
   
 class Client : public AbstractClient, public Request, public Response {
 public:
-  Client(BackendManager& backendManager, tcp::socket&& socket, std::vector<char>&& buffer);
+  Client(ClientContext& clientContext, tcp::socket&& socket, std::vector<char>&& buffer);
   Client(const Client& other) = delete;
   Client& operator=(const Client& right) = delete;
   virtual ~Client();
   
   void start() override;
   // IPC::Request -->
-  const char* getHeader() {return requestHeader;}
-  std::size_t getHeaderSize() {return sizeof(requestHeader);};
-  const std::vector<std::vector<char>>& getBody() {return buffers;}
-  std::size_t getBodySize() {return requestBodySize;}  
+  const char* getHeader() {return request.getHeader();}
+  std::size_t getHeaderSize() {return request.getHeaderSize();;};
+  const std::vector<buffer>& getBody() {return request.getBody();}
+  std::size_t getBodySize() {return request.getBodySize();}  
   // <-- IPC::Request
   // IPC::Response -->
   void onHandshakeResponse(char) override;
   void onResponse(std::vector<char>&& buffer) override;
-  void onDisconnected();
+  void onDisconnect();
   // <-- IPC::Response
   void disconnect() override;
 private:  
@@ -63,12 +65,10 @@ private:
   void sendRequest();
   void doSendRequest();
 private:
-  BackendManager& backendManager;
+  ClientContext clientContext;
   HandshakeRequest handshakeRequest;
-  static constexpr std::size_t HEADER_SIZE = 8;
-  char requestHeader[HEADER_SIZE];
-  std::size_t requestBodySize;
-  std::vector<std::vector<char>> buffers;
+  char shakehandResponse;  
+  Message request;
   BackendConnection::Ptr currentConnection;
   std::vector<BackendConnection::Ptr> connections;
   
@@ -79,7 +79,7 @@ private:
     bool releaseAfterHandshake() {return false;}
     void onHandshakeResponse(char ignored) override {client.doSendRequest();}
     void onResponse(std::vector<char>&& buffer) override {/* TODO log error */}
-    void onDisconnected() override {client.onDisconnected();}
+    void onDisconnect() override {client.onDisconnect();}
   private:
     IPC::Client& client;
   } shNsRRequest;

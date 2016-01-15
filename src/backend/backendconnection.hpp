@@ -50,14 +50,21 @@ public:
   bool operator==(Backend::Ptr& other) {return backend==other;}
 private:
   void markBroken();
-  void connect(IPC::HandshakeRequest& request, tcp::resolver::iterator i);
-  void handshake(IPC::HandshakeRequest& request);
-  void readHandshakeResponse(IPC::HandshakeRequest& request);
+  void connect(tcp::resolver::iterator i);
+  void handshake();
+  void readHandshakeResponse();
+  void writeRequestHeader();
+  void writeRequestBody();
+  void readResponseHeader();
+  void readResponseBody();
 private:
   bool connected;
   Backend::Ptr backend;
   tcp::socket socket;
+  IPC::HandshakeRequest* handshakeRequest;
+  IPC::Request* request;
   IPC::Response* response;
+  char shakehandResponse;
 };
 
 } // namespace IPC

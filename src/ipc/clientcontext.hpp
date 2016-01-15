@@ -20,31 +20,23 @@
  * THE SOFTWARE. 
  */
 
-#ifndef PROTOCOL_DETECTOR_HPP
-#define PROTOCOL_DETECTOR_HPP
+#ifndef IPC_CLIENT_CONTEXT_HPP
+#define IPC_CLIENT_CONTEXT_HPP
 
-#include <exception>
-#include <functional>
-#include <vector>
-#include <boost/asio.hpp>
-#include "backend/backendmanager.hpp"
-#include "client/abstractclient.hpp"
-#include "ipc/clientcontext.hpp"
+#include "bufferpool.hpp"
 
-class ProtocolDetector : public std::enable_shared_from_this<ProtocolDetector> {
-public:
-  typedef std::function<void(AbstractClient::Ptr)> ClientProcessor;
+namespace IPC {
+
+struct ClientContext {
+  BackendManager& backendManager;
+  BufferPool& bufferPool;
   
-  static void start(IPC::ClientContext clientContext, tcp::socket& socket, ClientProcessor&& clientProcessor);   
-private:
-  ProtocolDetector(IPC::ClientContext clientContext, tcp::socket& socket, ClientProcessor&& clientProcessor);
-  void start();
-  std::size_t detect(std::size_t bytes_transferred);
-private:  
-  IPC::ClientContext clientContext;
-  tcp::socket socket;
-  ClientProcessor clientProcessor;
-  
-  std::vector<char> buffer;
+  ClientContext(BackendManager& backendManager_, BufferPool& bufferPool_)
+    : backendManager{backendManager_},
+      bufferPool{bufferPool_} {}
 };
-#endif /* PROTOCOL_DETECTOR_HPP */
+  
+} // namespace IPC
+
+#endif /* IPC_CLIENT_CONTEXT_HPP */
+

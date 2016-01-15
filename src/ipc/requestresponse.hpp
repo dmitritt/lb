@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <utility>
+#include "bufferpool.hpp"
 
 typedef unsigned long client_id_t;  
 
@@ -48,8 +49,6 @@ private:
   client_id_t clientId;
   // null-terminated ascii string "username:password\N"
   std::vector<char> buffer;  
-public:
-  char responseByte[1];
 };  
   
 class Request {
@@ -57,7 +56,7 @@ public:
   virtual ~Request(){}
   virtual const char* getHeader() = 0;
   virtual std::size_t getHeaderSize() = 0;
-  virtual const std::vector<std::vector<char>>& getBody() = 0;
+  virtual const std::vector<buffer>& getBody() = 0;
   virtual std::size_t getBodySize() = 0;
 };
 
@@ -67,7 +66,7 @@ public:
   virtual bool releaseAfterHandshake() {return true;}
   virtual void onHandshakeResponse(char) = 0;
   virtual void onResponse(std::vector<char>&& buffer) = 0;
-  virtual void onDisconnected() = 0;
+  virtual void onDisconnect() = 0;
 };
 /*
 class BackendManager {
