@@ -107,7 +107,7 @@ void BackendConnection::readHandshakeResponse() {
         }
         connected = true;
         
-        response->onHandshakeResponse(shakehandResponse);
+        response->sendHandshakeResponse(shakehandResponse);
         response = nullptr;
       }      
     });

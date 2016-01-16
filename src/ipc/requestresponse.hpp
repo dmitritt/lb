@@ -64,8 +64,10 @@ class Response {
 public:
   virtual ~Response() {}
   virtual bool releaseAfterHandshake() {return true;}
-  virtual void onHandshakeResponse(char) = 0;
-  virtual void onResponse(std::vector<char>&& buffer) = 0;
+  virtual void sendHandshakeResponse(char) = 0;
+  virtual void sendResponseHeader(const char * header) = 0;
+  virtual void sendResponseChunk(buffer&& header) = 0;
+  virtual void sendResponseLastChunk(buffer&& header, uint32_t size) = 0;
   virtual void onDisconnect() = 0;
 };
 /*

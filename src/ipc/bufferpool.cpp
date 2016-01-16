@@ -28,18 +28,17 @@ BufferPool::BufferPool() {
 }
 
 BufferPool::~BufferPool() {
-  for (buffer b : freeBuffers) {
-    delete[] b;
-  }
+//  for (buffer b : freeBuffers) {
+//    delete[] b;
+//  }
 }
 
 buffer BufferPool::allocate() {
-  return new BufferValue; 
+  return std::unique_ptr<priv::BufferValue,priv::Deallocator>(new priv::BufferValue, priv::Deallocator(*this)); 
 }
 
-void BufferPool::deallocate(buffer b) {
-  delete b;
+void BufferPool::deallocate(priv::BufferValue* bv) {
+  delete bv;
 }
-
 
 } // namespace IPC

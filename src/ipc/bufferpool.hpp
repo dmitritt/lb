@@ -23,16 +23,27 @@
 #ifndef IPC_BUFFER_POOL_HPP
 #define IPC_BUFFER_POOL_HPP
 
+#include <memory>
 #include <vector>
 
 namespace IPC {
 
 static const std::size_t BUFFER_SIZE = 4 * 1024;
 
-typedef struct BufferValue {
-  char b[BUFFER_SIZE];
-} * buffer;
+class BufferPool;
+
+namespace priv {
   
+struct BufferValue {
+  char b[BUFFER_SIZE];
+  char * get() {return b;}
+};
+
+class Deallocator;
+}
+
+typedef std::unique_ptr<priv::BufferValue,priv::Deallocator> buffer;
+
 class BufferPool {
 public:
   BufferPool();
@@ -40,10 +51,25 @@ public:
   ~BufferPool();
   
   buffer allocate();
-  void deallocate(buffer b);
+    
 private:
-  std::vector<buffer> freeBuffers;
+  friend class priv::Deallocator;
+  void deallocate(priv::BufferValue* bv);
+//  std::vector<BufferValue*> freeBuffers;
+public:
 };
+
+namespace priv {
+
+class Deallocator {
+public:
+  Deallocator(BufferPool& parent_) : parent{parent_} {}
+  void operator()(priv::BufferValue* bv) {parent.deallocate(bv);}    
+private:
+  BufferPool& parent;
+};
+  
+}
 
 } // namespace IPC
 

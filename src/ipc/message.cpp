@@ -60,15 +60,16 @@ void Message::ensureBodyBufferCapacity() {
   uint32_t tmp = body.empty() ? 0 : body.size() * sizeof(*body.front());
   
   while(tmp < bodySize) {
-    buffer b = bufferPool.allocate();
+    buffer b = bufferPool.allocate();    
     tmp += sizeof(*b);
+    body.emplace_back(std::move(b));
   }
 }
 
 void Message::releaseBodyBuffer() {
-  for(auto b : body) {
-    bufferPool.deallocate(b);
-  }
+//  for(auto b : body) {
+//    bufferPool.deallocate(b);
+//  }
   body.clear();  
 }
 

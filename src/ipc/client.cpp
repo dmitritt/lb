@@ -82,7 +82,7 @@ bool Client::getAvailableConnection() {
   return true;
 }
 
-void Client::onHandshakeResponse(char response) {
+void Client::sendHandshakeResponse(char response) {
   auto self = shared_from_this();
   shakehandResponse = response;
   boost::asio::async_write(
@@ -159,13 +159,16 @@ void Client::sendNoAvailableBackendsError() {
     });
 }
 
-void Client::onResponse(std::vector<char>&& buffer) {
-//backendManager.sendRequest(request, response);
-}
+void Client::sendResponseHeader(const char * header) {}
+void Client::sendResponseChunk(buffer&& header) {}
+void Client::sendResponseLastChunk(buffer&& header, uint32_t size) {};
+
 
 void Client::onDisconnect() {
   // TODO log
   disconnect();
 }
+
+
 
 } // namespace IPC

@@ -51,8 +51,10 @@ public:
   std::size_t getBodySize() {return request.getBodySize();}  
   */ // <-- IPC::Request
   // IPC::Response -->
-  void onHandshakeResponse(char) override;
-  void onResponse(std::vector<char>&& buffer) override;
+  void sendHandshakeResponse(char ignored) override;
+  void sendResponseHeader(const char * header) override;
+  void sendResponseChunk(buffer&& header) override;
+  void sendResponseLastChunk(buffer&& header, uint32_t size) override;
   void onDisconnect();
   // <-- IPC::Response
   void disconnect() override;
@@ -77,8 +79,11 @@ private:
   public:
     R(IPC::Client& client_) : client{client_} {}  
     bool releaseAfterHandshake() {return false;}
-    void onHandshakeResponse(char ignored) override {client.doSendRequest();}
-    void onResponse(std::vector<char>&& buffer) override {/* TODO log error */}
+    void sendHandshakeResponse(char ignored) override {client.doSendRequest();}
+    void sendResponseHeader(const char * header) override {}
+    void sendResponseChunk(buffer&& header) override {}
+    void sendResponseLastChunk(buffer&& header, uint32_t size) override {}
+
     void onDisconnect() override {client.onDisconnect();}
   private:
     IPC::Client& client;
