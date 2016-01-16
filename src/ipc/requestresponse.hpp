@@ -50,7 +50,7 @@ private:
   // null-terminated ascii string "username:password\N"
   std::vector<char> buffer;  
 };  
-  
+/*  
 class Request {
 public:
   virtual ~Request(){}
@@ -59,7 +59,7 @@ public:
   virtual const std::vector<buffer>& getBody() = 0;
   virtual std::size_t getBodySize() = 0;
 };
-
+*/
 class Response {
 public:
   virtual ~Response() {}

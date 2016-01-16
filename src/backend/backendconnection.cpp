@@ -113,7 +113,7 @@ void BackendConnection::readHandshakeResponse() {
     });
   }
 
-void BackendConnection::executeRequest(IPC::Request& request_, IPC::Response& response_) {
+void BackendConnection::executeRequest(const IPC::Message& request_, IPC::Response& response_) {
   request = &request_;
   response = &response_;
   writeRequestHeader();

@@ -44,8 +44,8 @@ public:
   State getState() {return state;}
   bool take();
   void release();
-  void handshake(IPC::HandshakeRequest& request, IPC::Response& response);
-  void executeRequest(IPC::Request& request, IPC::Response& response);
+//  void handshake(IPC::HandshakeRequest& request, IPC::Response& response);
+//  void executeRequest(IPC::Request& request, IPC::Response& response);
 private:
   const Address& address;
   std::atomic<State> state; 

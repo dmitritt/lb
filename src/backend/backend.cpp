@@ -34,7 +34,7 @@ void Backend::check() {
 void Backend::connect() {
 
 }
-
+/*
 void Backend::handshake(IPC::HandshakeRequest& request, IPC::Response& response) {
   
 }
@@ -42,7 +42,7 @@ void Backend::handshake(IPC::HandshakeRequest& request, IPC::Response& response)
 void Backend::executeRequest(IPC::Request& request, IPC::Response& response) {
 
 }
-
+*/
 bool Backend::take() {
   return false;
 }

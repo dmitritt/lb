@@ -28,6 +28,7 @@
 #include "backend.hpp"
 #include "../config.hpp"
 #include "../ipc/requestresponse.hpp"
+#include "../ipc/message.hpp"
 
 using boost::asio::ip::tcp;
 
@@ -45,7 +46,7 @@ public:
   bool isConnected() {return connected;}
   void start(IPC::HandshakeRequest& request, IPC::Response& response);
   bool take() {return backend->take();}
-  void executeRequest(IPC::Request& request, IPC::Response& response); 
+  void executeRequest(const IPC::Message& request, IPC::Response& response); 
   void close();
   bool operator==(Backend::Ptr& other) {return backend==other;}
 private:
@@ -62,7 +63,7 @@ private:
   Backend::Ptr backend;
   tcp::socket socket;
   IPC::HandshakeRequest* handshakeRequest;
-  IPC::Request* request;
+  const IPC::Message* request;
   IPC::Response* response;
   char shakehandResponse;
 };

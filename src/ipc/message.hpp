@@ -37,12 +37,17 @@ public:
   
   ~Message(); 
   
+  uint32_t getHeaderSize() const {return HEADER_SIZE;}
   char* getHeader() {return header;}
-  uint32_t getHeaderSize() {return HEADER_SIZE;}
+  const char* getHeader() const {return header;}
+  
   void parseBodySize();
   void ensureBodyBufferCapacity();
-  uint32_t getBodySize() {return bodySize;}
+  
+  uint32_t getBodySize() const {return bodySize;}
   std::vector<buffer>& getBody() {return body;}
+  const std::vector<buffer>& getBody() const {return body;}
+  
   void releaseBodyBuffer();
 private:
   BufferPool& bufferPool;

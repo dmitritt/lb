@@ -36,7 +36,7 @@ namespace IPC {
 
 class SHNSRResponse;  
   
-class Client : public AbstractClient, public Request, public Response {
+class Client : public AbstractClient, /*public Request,*/ public Response {
 public:
   Client(ClientContext& clientContext, tcp::socket&& socket, std::vector<char>&& buffer);
   Client(const Client& other) = delete;
@@ -44,12 +44,12 @@ public:
   virtual ~Client();
   
   void start() override;
-  // IPC::Request -->
+  /* // IPC::Request -->
   const char* getHeader() {return request.getHeader();}
   std::size_t getHeaderSize() {return request.getHeaderSize();;};
   const std::vector<buffer>& getBody() {return request.getBody();}
   std::size_t getBodySize() {return request.getBodySize();}  
-  // <-- IPC::Request
+  */ // <-- IPC::Request
   // IPC::Response -->
   void onHandshakeResponse(char) override;
   void onResponse(std::vector<char>&& buffer) override;
