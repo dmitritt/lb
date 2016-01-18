@@ -20,6 +20,7 @@
  * THE SOFTWARE. 
  */
 
+#include <iostream>
 #include "config.hpp"
 #include "server.hpp"
 

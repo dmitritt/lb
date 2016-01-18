@@ -16,3 +16,12 @@
 [submodule "boost/lockfree"]
 	path = boost/lockfree
 	url = https://github.com/boostorg/lockfree.git
+[submodule "boost/config"]
+	path = boost/config
+	url = https://github.com/boostorg/config.git
+[submodule "boost/assert"]
+	path = boost/assert
+	url = https://github.com/boostorg/assert.git
+[submodule "boost/static_assert"]
+	path = boost/static_assert
+	url = https://github.com/boostorg/static_assert.git
