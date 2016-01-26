@@ -32,46 +32,44 @@ static const std::size_t BUFFER_SIZE = 4 * 1024;
 
 class BufferPool;
 
-namespace priv {
+namespace detail {
   
 struct BufferValue {
   char b[BUFFER_SIZE];
   char * get() {return b;}
+  std::size_t size() {return BUFFER_SIZE;}
 };
 
 class Deallocator;
 }
 
-typedef std::unique_ptr<priv::BufferValue,priv::Deallocator> buffer;
+typedef std::shared_ptr<detail::BufferValue> buffer;
 
 class BufferPool {
 public:
   BufferPool();
-  BufferPool(const BufferPool& orig) = delete;
+  BufferPool(const BufferPool& other) = delete;
+  BufferPool& operator=(const BufferPool& other) = delete;
   ~BufferPool();
   
   buffer allocate();
-    
 private:
-  friend class priv::Deallocator;
-  void deallocate(priv::BufferValue* bv);
-//  std::vector<BufferValue*> freeBuffers;
-public:
+  friend class detail::Deallocator;
+  void deallocate(detail::BufferValue* bv);
 };
 
-namespace priv {
+namespace detail {
 
 class Deallocator {
 public:
   Deallocator(BufferPool& parent_) : parent{parent_} {}
-  void operator()(priv::BufferValue* bv) {parent.deallocate(bv);}    
+  void operator()(detail::BufferValue* bv) {parent.deallocate(bv);}    
 private:
   BufferPool& parent;
 };
   
-}
+} // namespace detail
 
 } // namespace IPC
 
-#endif /* BUFFERPOOL_HPP */
-
+#endif // IPC_BUFFER_POOL_HPP

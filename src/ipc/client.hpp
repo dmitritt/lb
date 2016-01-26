@@ -23,20 +23,27 @@
 #ifndef IPC_CLIENT_HPP
 #define IPC_CLIENT_HPP
 
+#include <memory>
 #include <vector>
 #include <boost/asio.hpp>
 #include "../backend/backendconnection.hpp"
 #include "../backend/backendmanager.hpp"
 #include "../client/abstractclient.hpp"
+#include "bufferpool.hpp"
 #include "clientcontext.hpp"
 #include "message.hpp"
 #include "requestresponse.hpp"
+#include "responsechunkpipe.hpp"
 
 namespace IPC {
 
-class SHNSRResponse;  
+namespace detail {
+  class SimpleHandshakeResponse;
+  class BeforeRequestHandshakeResponse;
+  class ResponseImpl;
+}  
   
-class Client : public AbstractClient, /*public Request,*/ public Response {
+class Client : public AbstractClient {
 public:
   Client(ClientContext& clientContext, tcp::socket&& socket, std::vector<char>&& buffer);
   Client(const Client& other) = delete;
@@ -44,21 +51,17 @@ public:
   virtual ~Client();
   
   void start() override;
-  /* // IPC::Request -->
-  const char* getHeader() {return request.getHeader();}
-  std::size_t getHeaderSize() {return request.getHeaderSize();;};
-  const std::vector<buffer>& getBody() {return request.getBody();}
-  std::size_t getBodySize() {return request.getBodySize();}  
-  */ // <-- IPC::Request
-  // IPC::Response -->
-  void sendHandshakeResponse(char ignored) override;
-  void sendResponseHeader(const char * header) override;
-  void sendResponseChunk(buffer&& header) override;
-  void sendResponseLastChunk(buffer&& header, uint32_t size) override;
-  void onDisconnect();
-  // <-- IPC::Response
   void disconnect() override;
 private:  
+  void sendHandshakeResponse(char response);
+  Header& getResponseHeader(){return request.getHeader();}
+  bool releaseAfterHandshake(){return true;};
+  void onDisconnect();
+  message_size_t sendResponseHeader();
+  void addResponseChunk(buffer bytes);
+  void sendNextResponseChunk();
+  void sendResponseChunk(std::pair<buffer,message_size_t>& p);
+
   void sendNoAvailableBackendsError();
   bool getAvailableConnection();
   void readRequestHeader();
@@ -66,28 +69,22 @@ private:
   void readRequestBody();
   void sendRequest();
   void doSendRequest();
+    
+  friend class detail::SimpleHandshakeResponse;
+  friend class detail::BeforeRequestHandshakeResponse;
+  friend class detail::ResponseImpl;
 private:
   ClientContext clientContext;
-  HandshakeRequest handshakeRequest;
-  char shakehandResponse;  
-  Message request;
   BackendConnection::Ptr currentConnection;
   std::vector<BackendConnection::Ptr> connections;
-  
-  // shakehand and send request
-  class R : public IPC::Response {
-  public:
-    R(IPC::Client& client_) : client{client_} {}  
-    bool releaseAfterHandshake() {return false;}
-    void sendHandshakeResponse(char ignored) override {client.doSendRequest();}
-    void sendResponseHeader(const char * header) override {}
-    void sendResponseChunk(buffer&& header) override {}
-    void sendResponseLastChunk(buffer&& header, uint32_t size) override {}
 
-    void onDisconnect() override {client.onDisconnect();}
-  private:
-    IPC::Client& client;
-  } shNsRRequest;
+  HandshakeRequest handshakeRequest;
+  const std::unique_ptr<HandshakeResponse> simpleHandshakeResponse;  
+  char shakehandResponse;  
+  Message request;
+  const std::unique_ptr<HandshakeResponse> beforeRequestHandshakeResponse;  
+  const std::unique_ptr<detail::ResponseImpl> response;  
+  ResponseChunkPipe responseChunks;
 };
 
 } // namespace IPC

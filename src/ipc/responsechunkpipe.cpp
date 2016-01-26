@@ -20,41 +20,51 @@
  * THE SOFTWARE. 
  */
 
-#ifndef IPC_MESSAGE_HPP
-#define IPC_MESSAGE_HPP
-
-#include "bufferpool.hpp"
-#include "header.hpp"
+#include "responsechunkpipe.hpp"
 
 namespace IPC {
-  
-class Message {
-public:  
-  explicit Message(BufferPool& bufferPool);
-  Message(const Message& orig) = delete;
-  Message(Message&& other);
-  
-  ~Message(); 
-  
-  Header& getHeader() {return header;}
-  const Header& getHeader() const {return header;}
-  
-  void parseBodySize();
-  void ensureBodyBufferCapacity();
-  
-  message_size_t getBodySize() const {return bodySize;}
-  std::vector<buffer>& getBody() {return body;}
-  const std::vector<buffer>& getBody() const {return body;}
-  
-  void releaseBodyBuffer();
-  BufferPool& getBufferPool() {return bufferPool;}
-private:
-  BufferPool& bufferPool;
-  Header header;
-  message_size_t bodySize;
-  std::vector<buffer> body;
-};
 
+namespace {
+  // TODO
+  std::size_t RING_BUFFER_MAX_SIZE = 1024;
+}  
+  
+ResponseChunkPipe::ResponseChunkPipe(ChunkProcessor chunkProcessor_)
+  : chunkProcessor{chunkProcessor_},
+    sending{false},
+    bytesToGet{0},
+    chunks{RING_BUFFER_MAX_SIZE}{
 }
-#endif /* IPC_MESSAGE_HPP */
 
+void ResponseChunkPipe::setBytesToSend(message_size_t count) {
+  bytesToGet = count;
+}
+
+void ResponseChunkPipe::put(buffer chunk) {
+  bool expected = false;
+  if (!chunks.push(chunk)) {
+    // TODO log
+  } else if (sending.compare_exchange_strong(expected, true)) {
+    auto r = get();
+    if (r.second) {
+      chunkProcessor(r);
+    }
+  }
+}
+
+std::pair<buffer,message_size_t> ResponseChunkPipe::get() {
+  assert(sending);
+  
+  buffer b;
+  message_size_t size = 0;
+  if (!chunks.pop(b)) {
+    sending = false;
+  } else {
+    size = (bytesToGet > b->size() ? b->size() : bytesToGet);
+    bytesToGet -= size;
+  }
+  
+  return std::make_pair(b, size);
+}
+
+} // namespace IPCres

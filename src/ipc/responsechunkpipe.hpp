@@ -20,41 +20,40 @@
  * THE SOFTWARE. 
  */
 
-#ifndef IPC_MESSAGE_HPP
-#define IPC_MESSAGE_HPP
+#ifndef IPC_BUFFER_PIPE_HPP
+#define IPC_BUFFER_PIPE_HPP
 
+#include <atomic>
+#include <functional>
+#include <memory>
+#include <utility>
+#include <boost/lockfree/spsc_queue.hpp>
 #include "bufferpool.hpp"
 #include "header.hpp"
+#include "types.hpp"
 
 namespace IPC {
+
+class ResponseChunkPipe {
+public:
+  typedef std::function<void(std::pair<buffer,message_size_t>&)> ChunkProcessor;
   
-class Message {
-public:  
-  explicit Message(BufferPool& bufferPool);
-  Message(const Message& orig) = delete;
-  Message(Message&& other);
+  ResponseChunkPipe(ChunkProcessor);
+  ResponseChunkPipe(const ResponseChunkPipe& other) = delete;
+  ResponseChunkPipe& operator=(const ResponseChunkPipe& other) = delete;
   
-  ~Message(); 
-  
-  Header& getHeader() {return header;}
-  const Header& getHeader() const {return header;}
-  
-  void parseBodySize();
-  void ensureBodyBufferCapacity();
-  
-  message_size_t getBodySize() const {return bodySize;}
-  std::vector<buffer>& getBody() {return body;}
-  const std::vector<buffer>& getBody() const {return body;}
-  
-  void releaseBodyBuffer();
-  BufferPool& getBufferPool() {return bufferPool;}
+  void setBytesToSend(message_size_t count);
+  void put(buffer chunk);
+  std::pair<buffer,message_size_t> get();
 private:
-  BufferPool& bufferPool;
-  Header header;
-  message_size_t bodySize;
-  std::vector<buffer> body;
+  ChunkProcessor chunkProcessor;
+  std::atomic<bool> sending;
+  message_size_t bytesToGet;
+    
+  boost::lockfree::spsc_queue<buffer> chunks;
 };
 
-}
-#endif /* IPC_MESSAGE_HPP */
+} // namespace IPC
+
+#endif /* IPC_BUFFER_PIPE_HPP */
 

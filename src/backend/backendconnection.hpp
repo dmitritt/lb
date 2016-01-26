@@ -38,13 +38,13 @@ class BackendConnection : public std::enable_shared_from_this<BackendConnection>
 public:
   typedef std::shared_ptr<BackendConnection> Ptr;  
   
-  BackendConnection(Backend::Ptr backend, boost::asio::io_service& ioService);
+  BackendConnection(BufferPool& bufferPoll, Backend::Ptr backend, boost::asio::io_service& ioService);
   BackendConnection(const BackendConnection&) = delete;
   BackendConnection& operator=(const BackendConnection&) = delete;
   ~BackendConnection();
   
   bool isConnected() {return connected;}
-  void start(IPC::HandshakeRequest& request, IPC::Response& response);
+  void start(IPC::HandshakeRequest& request, IPC::HandshakeResponse& response);
   bool take() {return backend->take();}
   void executeRequest(const IPC::Message& request, IPC::Response& response); 
   void close();
@@ -57,18 +57,19 @@ private:
   void writeRequestHeader();
   void writeRequestBody();
   void readResponseHeader();
-  void readResponseBody();
+  void readResponseBody(uint32_t bodySize);
 private:
+  BufferPool& bufferPool;
   bool connected;
   Backend::Ptr backend;
   tcp::socket socket;
   IPC::HandshakeRequest* handshakeRequest;
-  const IPC::Message* request;
-  IPC::Response* response;
-  char shakehandResponse;
+  IPC::HandshakeResponse* handshakeResponse;
+  char handshakeResponseByte;
+  const IPC::Message* request;  
+  IPC::Response* response;  
 };
 
 } // namespace IPC
 
 #endif /* BACKEND_CONNECTION_HPP */
-

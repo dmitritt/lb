@@ -20,12 +20,13 @@
  * THE SOFTWARE. 
  */
 
-#ifndef IPC_BACKEND_HPP
-#define IPC_BACKEND_HPP
+#ifndef IPC_REQUEST_RESPONSE_HPP
+#define IPC_REQUEST_RESPONSE_HPP
 
 #include <memory>
 #include <utility>
 #include "bufferpool.hpp"
+#include "message.hpp"
 
 typedef unsigned long client_id_t;  
 
@@ -50,36 +51,31 @@ private:
   // null-terminated ascii string "username:password\N"
   std::vector<char> buffer;  
 };  
-/*  
-class Request {
+
+class HandshakeResponse {
 public:
-  virtual ~Request(){}
-  virtual const char* getHeader() = 0;
-  virtual std::size_t getHeaderSize() = 0;
-  virtual const std::vector<buffer>& getBody() = 0;
-  virtual std::size_t getBodySize() = 0;
+  virtual ~HandshakeResponse() {}
+  
+  // returns if backend to be released after the handshake
+  virtual bool releaseAfterHandshake() = 0;
+  virtual void sendHandshakeResponse(char) = 0;
+  
+  virtual void onDisconnect() = 0;
 };
-*/
+
 class Response {
 public:
   virtual ~Response() {}
-  virtual bool releaseAfterHandshake() {return true;}
-  virtual void sendHandshakeResponse(char) = 0;
-  virtual void sendResponseHeader(const char * header) = 0;
-  virtual void sendResponseChunk(buffer&& header) = 0;
-  virtual void sendResponseLastChunk(buffer&& header, uint32_t size) = 0;
+  
+  virtual Header& getResponseHeader() = 0;
+  // returns number of bytes to be read from backend connected
+  virtual message_size_t sendResponseHeader() = 0;
+  // returns number of bytes to be read from backend connected, 0 if nothing to read
+  virtual message_size_t sendResponseChunk(buffer chunk) = 0;
+  
   virtual void onDisconnect() = 0;
 };
-/*
-class BackendManager {
-public:
-  virtual ~BackendManager() {}
-  virtual void sendHandshake(HandshakeRequest request) = 0;
-  virtual void sendRequest(Request& request) = 0;
-  virtual void fetchResponse(Response& response) = 0;
-  virtual void clientDisconnected(client_id_t clientId) = 0;
-};
-*/
+
 } // namespace IPC
   
-#endif /* IPC_BACKEND_HPP */
+#endif /* IPC_REQUEST_RESPONSE_HPP */

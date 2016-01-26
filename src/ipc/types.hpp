@@ -20,41 +20,14 @@
  * THE SOFTWARE. 
  */
 
-#ifndef IPC_MESSAGE_HPP
-#define IPC_MESSAGE_HPP
-
-#include "bufferpool.hpp"
-#include "header.hpp"
+#ifndef IPC_TYPES_HPP
+#define IPC_TYPES_HPP
 
 namespace IPC {
-  
-class Message {
-public:  
-  explicit Message(BufferPool& bufferPool);
-  Message(const Message& orig) = delete;
-  Message(Message&& other);
-  
-  ~Message(); 
-  
-  Header& getHeader() {return header;}
-  const Header& getHeader() const {return header;}
-  
-  void parseBodySize();
-  void ensureBodyBufferCapacity();
-  
-  message_size_t getBodySize() const {return bodySize;}
-  std::vector<buffer>& getBody() {return body;}
-  const std::vector<buffer>& getBody() const {return body;}
-  
-  void releaseBodyBuffer();
-  BufferPool& getBufferPool() {return bufferPool;}
-private:
-  BufferPool& bufferPool;
-  Header header;
-  message_size_t bodySize;
-  std::vector<buffer> body;
-};
 
-}
-#endif /* IPC_MESSAGE_HPP */
+typedef uint32_t message_size_t;  
+  
+} // namespace IPC
+
+#endif // IPC_TYPES_HPP
 

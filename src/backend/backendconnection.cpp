@@ -26,8 +26,9 @@ using boost::asio::ip::tcp;
 
 namespace IPC {
   
-BackendConnection::BackendConnection(Backend::Ptr backend_, boost::asio::io_service& ioService)
-  : connected{false},
+BackendConnection::BackendConnection(BufferPool& bufferPool_, Backend::Ptr backend_, boost::asio::io_service& ioService)
+  : bufferPool{bufferPool_},
+    connected{false},
     backend{backend_},
     socket{ioService} {
 }
@@ -36,9 +37,9 @@ BackendConnection::~BackendConnection() {
   close();
 }
 
-void BackendConnection::start(IPC::HandshakeRequest& request, IPC::Response& response_) {
+void BackendConnection::start(IPC::HandshakeRequest& request, IPC::HandshakeResponse& response) {
   handshakeRequest = &request;
-  response = &response_;
+  handshakeResponse = &response;
   tcp::resolver resolver{socket.get_io_service()};
   resolver.async_resolve({backend->getAddress().host, backend->getAddress().port}, 
     [this](const boost::system::error_code& ec, tcp::resolver::iterator it) {
@@ -66,6 +67,8 @@ void BackendConnection::markBroken() {
 }
 
 void BackendConnection::close() {
+  handshakeRequest = nullptr;
+  handshakeResponse = nullptr;
   response = nullptr;
   if (backend) {
     backend->release();
@@ -92,26 +95,26 @@ void BackendConnection::handshake() {
     });
 }
 
-void BackendConnection::readHandshakeResponse() {  
+void BackendConnection::readHandshakeResponse() { 
   boost::asio::async_read(
     socket,
-    boost::asio::buffer(&shakehandResponse, sizeof(shakehandResponse)),
+    boost::asio::buffer(&handshakeResponseByte, sizeof(handshakeResponseByte)),
     [this](const boost::system::error_code& ec, std::size_t bytes_transferred) {
       if (!ec) {
-        response->onDisconnect();
+        handshakeResponse->onDisconnect();
         // TODO log error
         close();        
       } else {
-        if (response->releaseAfterHandshake()) {
+        if (handshakeResponse->releaseAfterHandshake()) {
           backend->release();
         }
         connected = true;
         
-        response->sendHandshakeResponse(shakehandResponse);
-        response = nullptr;
+        handshakeResponse->sendHandshakeResponse(handshakeResponseByte);
+        handshakeResponse = nullptr;
       }      
     });
-  }
+}
 
 void BackendConnection::executeRequest(const IPC::Message& request_, IPC::Response& response_) {
   request = &request_;
@@ -122,7 +125,7 @@ void BackendConnection::executeRequest(const IPC::Message& request_, IPC::Respon
 void BackendConnection::writeRequestHeader() {
   boost::asio::async_write(
     socket, 
-    boost::asio::buffer(request->getHeader(), request->getHeaderSize()),
+    boost::asio::buffer(request->getHeader(), sizeof(*request->getHeader())),
     [this](const boost::system::error_code& ec, std::size_t bytes_transferred) {
       handshakeRequest = nullptr;
       if (!ec) {
@@ -137,7 +140,7 @@ void BackendConnection::writeRequestHeader() {
 void BackendConnection::writeRequestBody() {
   boost::asio::async_write(
     socket, 
-    boost::asio::buffer(request->getHeader(), request->getHeaderSize()),
+    boost::asio::buffer(request->getHeader(), sizeof(*request->getHeader())),
     [this](const boost::system::error_code& ec, std::size_t bytes_transferred) {
       handshakeRequest = nullptr;
       if (!ec) {
@@ -150,12 +153,40 @@ void BackendConnection::writeRequestBody() {
 }
 
 void BackendConnection::readResponseHeader() {
-
+  auto self = shared_from_this();
+  boost::asio::async_read(
+    socket,
+    boost::asio::buffer(response->getResponseHeader(), sizeof(response->getResponseHeader())),
+    [this, self](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+      if (ec) {
+        // TODO log
+        close();
+        response->onDisconnect();
+      } else {
+        const uint32_t bodySize = response->sendResponseHeader();
+        readResponseBody(bodySize);
+      }
+    });
 }
 
-void BackendConnection::readResponseBody() {
-
+void BackendConnection::readResponseBody(uint32_t bodySize) {
+  auto self = shared_from_this();
+  buffer buffer = bufferPool.allocate();
+  boost::asio::async_read(
+    socket,
+    boost::asio::buffer(&*buffer, std::min(bodySize, (uint32_t)sizeof(*buffer))),
+    [this, self, buffer](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+      if (ec) {
+        // TODO log
+        close();
+        response->onDisconnect();
+      } else {
+        const uint32_t bodySize = response->sendResponseChunk(buffer);
+        if (bodySize) {
+          readResponseBody(bodySize);
+        }
+      }
+    });
 }
-  
   
 } // namespace IPC

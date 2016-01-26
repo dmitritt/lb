@@ -31,13 +31,66 @@ namespace {
 }  
 
 namespace IPC {
+
+namespace detail {
+
+class SimpleHandshakeResponse : public IPC::HandshakeResponse {
+public:
+  SimpleHandshakeResponse(Client& client_) : client{client_} {}
+  
+  bool releaseAfterHandshake() override {return true;}
+  void sendHandshakeResponse(char response) override {client.sendHandshakeResponse(response);}
+
+  void onDisconnect() override {client.onDisconnect();}
+private:
+  Client& client;
+};
+  
+// shake hand before sending request
+class BeforeRequestHandshakeResponse : public IPC::HandshakeResponse {
+public:
+  BeforeRequestHandshakeResponse(Client& client_) : client{client_} {}
+  
+  bool releaseAfterHandshake() override {return false;}
+  void sendHandshakeResponse(char ignored) override {client.doSendRequest();}
+
+  void onDisconnect() override {client.onDisconnect();}
+private:
+  Client& client;
+};
+
+class ResponseImpl : public IPC::Response {
+public:
+  ResponseImpl(Client& client_) : client{client_} {}  
+
+  Header& getResponseHeader() override {return client.request.getHeader();}
+  message_size_t sendResponseHeader() override {
+    return bytesToRead = client.sendResponseHeader();
+  }  
+  message_size_t sendResponseChunk(buffer chunk) override {    
+    client.addResponseChunk(chunk);
+    return std::max<message_size_t>(bytesToRead -= chunk->size(), 0);
+  }
+
+  void onDisconnect() override {client.onDisconnect();}
+private:
+  Client& client;
+  message_size_t bytesToRead;  
+};
+  
+} // namespace detail 
   
 Client::Client(ClientContext& clientContext_, tcp::socket&& socket, std::vector<char>&& buffer) 
   : AbstractClient{std::move(socket)},
     clientContext{clientContext_},
     handshakeRequest{0UL, std::move(buffer)},
+    simpleHandshakeResponse{new detail::SimpleHandshakeResponse{*this}},
     request{clientContext.bufferPool},
-    shNsRRequest{*this} {
+    beforeRequestHandshakeResponse{new detail::BeforeRequestHandshakeResponse{*this}},
+    response{new detail::ResponseImpl{*this}},
+    responseChunks([this](std::pair<IPC::buffer,message_size_t>& p) {
+      sendResponseChunk(p);
+    }){
 }
 
 Client::~Client() {
@@ -49,7 +102,7 @@ void Client::start() {
     disconnect();
   } else {    
     assert(!currentConnection->isConnected());
-    currentConnection->start(handshakeRequest, *this);
+    currentConnection->start(handshakeRequest, *(simpleHandshakeResponse.get()));
   }  
 }
 
@@ -77,7 +130,7 @@ bool Client::getAvailableConnection() {
     }
   }
   
-  currentConnection.reset(new BackendConnection{backend, clientContext.backendManager.ioService});
+  currentConnection.reset(new BackendConnection{clientContext.bufferPool, backend, clientContext.backendManager.ioService});
   connections.push_back(currentConnection);
   return true;
 }
@@ -102,7 +155,7 @@ void Client::readRequestHeader() {
   auto self = shared_from_this();
   boost::asio::async_read(
     socket,
-    boost::asio::buffer(request.getHeader(), request.getHeaderSize()),
+    boost::asio::buffer(request.getHeader().get(), request.getHeader().size()),
     [this, self](const boost::system::error_code& ec, std::size_t bytes_transferred) {
       if (ec) {
         // TODO log
@@ -136,12 +189,12 @@ void Client::sendRequest() {
   } else if (currentConnection->isConnected()) {
     doSendRequest();
   } else {
-    currentConnection->start(handshakeRequest, shNsRRequest);
+    currentConnection->start(handshakeRequest, *(beforeRequestHandshakeResponse.get()));
   }
 }
 
 void Client::doSendRequest() {
-  currentConnection->executeRequest(request, *this);
+  currentConnection->executeRequest(request, *(response.get()));
 }
 
 void Client::sendNoAvailableBackendsError() {
@@ -159,16 +212,57 @@ void Client::sendNoAvailableBackendsError() {
     });
 }
 
-void Client::sendResponseHeader(const char * header) {}
-void Client::sendResponseChunk(buffer&& header) {}
-void Client::sendResponseLastChunk(buffer&& header, uint32_t size) {};
+message_size_t Client::sendResponseHeader() {
+  message_size_t bytesToSend = request.getHeader().getBodySize();
+  responseChunks.setBytesToSend(bytesToSend);
+  
+  auto self = shared_from_this();
+  boost::asio::async_write(
+    socket,
+    boost::asio::buffer(request.getHeader().get(), request.getHeader().size()),
+    [this, self](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+      if (ec) {
+        // TODO log
+        disconnect();
+      } else {
+        sendNextResponseChunk();
+      }
+    });
+  
+  return bytesToSend;
+}
+
+void Client::addResponseChunk(buffer bytes) {
+  responseChunks.put(bytes);
+}
+
+void Client::sendResponseChunk(std::pair<buffer,message_size_t>& p) {
+  if (p.second) {
+    auto b = p.first;
+    auto self = shared_from_this();
+    boost::asio::async_write(
+      socket,
+      boost::asio::buffer(b->get(), p.second),
+      [this, self, b](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+        if (ec) {
+          // TODO log
+          disconnect();
+        } else {
+          sendNextResponseChunk();
+        }
+      });
+  }
+}
+
+void Client::sendNextResponseChunk() {
+  auto p = responseChunks.get();
+  sendResponseChunk(p);
+}
 
 
 void Client::onDisconnect() {
   // TODO log
   disconnect();
 }
-
-
 
 } // namespace IPC

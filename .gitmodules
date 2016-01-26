@@ -25,3 +25,21 @@
 [submodule "boost/static_assert"]
 	path = boost/static_assert
 	url = https://github.com/boostorg/static_assert.git
+[submodule "boost/type_traits"]
+	path = boost/type_traits
+	url = https://github.com/boostorg/type_traits.git
+[submodule "boost/utility"]
+	path = boost/utility
+	url = https://github.com/boostorg/utility.git
+[submodule "boost/preprocessor"]
+	path = boost/preprocessor
+	url = https://github.com/boostorg/preprocessor.git
+[submodule "boost/mpl"]
+	path = boost/mpl
+	url = https://github.com/boostorg/mpl.git
+[submodule "boost/parameter"]
+	path = boost/parameter
+	url = https://github.com/boostorg/parameter.git
+[submodule "boost/detail"]
+	path = boost/detail
+	url = https://github.com/boostorg/detail.git

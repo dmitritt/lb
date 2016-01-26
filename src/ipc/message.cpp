@@ -21,7 +21,6 @@
  */
 
 #include <utility>
-#include <boost/endian/conversion.hpp>
 #include "message.hpp"
 
 namespace {
@@ -36,10 +35,9 @@ Message::Message(BufferPool& bufferPool_)
 
 Message::Message(Message&& other)
   : bufferPool{other.bufferPool},
+    header{std::move(other.header)},
     bodySize{other.bodySize},
     body{std::move(other.body)} {
-  std::memcpy(header, other.header, HEADER_SIZE);
-  std::memset(other.header, '\0', HEADER_SIZE);
   other.bodySize = 0;
 }
 
@@ -48,16 +46,11 @@ Message::~Message() {
   }
 
 void Message::parseBodySize() {
-  // header[0] - big endian (0) or little endian (1)  
-  uint32_t(*f)(uint32_t) = (header[0] ? 
-    ((uint32_t(*)(uint32_t))&boost::endian::little_to_native) : 
-    ((uint32_t(*)(uint32_t))&boost::endian::big_to_native));  
-  
-  bodySize = f(*(reinterpret_cast<const uint32_t*>(header + MESSAGE_SIZE_OFFSET))) - HEADER_SIZE;
+  bodySize = header.getBodySize();
 }
 
 void Message::ensureBodyBufferCapacity() {
-  uint32_t tmp = body.empty() ? 0 : body.size() * sizeof(*body.front());
+  uint32_t tmp = body.empty() ? 0 : body.size() * body.front()->size();
   
   while(tmp < bodySize) {
     buffer b = bufferPool.allocate();    

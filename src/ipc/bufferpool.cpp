@@ -34,10 +34,10 @@ BufferPool::~BufferPool() {
 }
 
 buffer BufferPool::allocate() {
-  return std::unique_ptr<priv::BufferValue,priv::Deallocator>(new priv::BufferValue, priv::Deallocator(*this)); 
+  return std::unique_ptr<detail::BufferValue,detail::Deallocator>(new detail::BufferValue, detail::Deallocator(*this)); 
 }
 
-void BufferPool::deallocate(priv::BufferValue* bv) {
+void BufferPool::deallocate(detail::BufferValue* bv) {
   delete bv;
 }
 
